@@ -2,7 +2,15 @@
 
 using namespace std;
 
-int main(){
+int main(int argc, char* argv[]){
+
+	if(argc!=3) {
+		cout<<"INVALID ARGS\n";
+	}
+
+	string in_path = argv[1];
+	string out_path = argv[2];
+
 	int num;
 	int L =0;
 	int D = 0;
@@ -13,90 +21,64 @@ int main(){
 	ifstream MyReadFile;
 	ofstream MyWriteFile;
 	
-	MyReadFile.open("max_level.txt");
-	// MyWriteFile.open("max_level.bin");
-	// while(MyReadFile >> num){
-	// 	MyWriteFile.write((char*)&num,4);
-	// }
+	MyReadFile.open(in_path+"/max_level.txt");
 	MyReadFile >> max_level;
 	MyReadFile.close();
-	// MyWriteFile.close();
-	// MyReadFile.clear();
-	// MyWriteFile.clear();
 
-	MyReadFile.open("index.txt");
-	MyWriteFile.open("index.bin");
+	MyReadFile.open(in_path+"/index.txt");
+	MyWriteFile.open(out_path+"/index.bin");
 	while(MyReadFile >> num){
 		MyWriteFile.write((char*)&num,4);
 	}
 	MyReadFile.close();
 	MyWriteFile.close();
-	// MyReadFile.clear();
-	// MyWriteFile.clear();
 	
-	MyReadFile.open("indptr.txt");
-	MyWriteFile.open("indptr.bin");
+	MyReadFile.open(in_path+"/indptr.txt");
+	MyWriteFile.open(out_path+"/indptr.bin");
 	while(MyReadFile >> num){
 		MyWriteFile.write((char*)&num,4);
 	}
 	MyReadFile.close();
 	MyWriteFile.close();
-	// MyReadFile.clear();
-	// MyWriteFile.clear();
 	
-	MyReadFile.open("ep.txt");
-	// MyWriteFile.open("ep.bin");
-	// while(MyReadFile >> num){
-	// 	MyWriteFile.write((char*)&num,4);
-	// }
+	MyReadFile.open(in_path+"/ep.txt");
 	MyReadFile >> ep;
 	MyReadFile.close();
-	// MyWriteFile.close();
-	// MyReadFile.clear();
-	// MyWriteFile.clear();
 	
-	MyReadFile.open("level.txt");
-	MyWriteFile.open("level.bin");
+	MyReadFile.open(in_path+"/level.txt");
+	MyWriteFile.open(out_path+"/level.bin");
 	while(MyReadFile >> num){
 		L++;
 		MyWriteFile.write((char*)&num,4);
 	}
 	MyReadFile.close();
 	MyWriteFile.close();
-	// MyReadFile.clear();
-	// MyWriteFile.clear();
 	
-	MyReadFile.open("level_offset.txt");
-	MyWriteFile.open("level_offset.bin");
+	MyReadFile.open(in_path+"/level_offset.txt");
+	MyWriteFile.open(out_path+"/level_offset.bin");
 	while(MyReadFile >> num){
 		MyWriteFile.write((char*)&num,4);
 	}
 	MyReadFile.close();
 	MyWriteFile.close();
-	// MyReadFile.clear();
-	// MyWriteFile.clear();
 	
-	MyReadFile.open("vect.txt");
-	MyWriteFile.open("vect.bin");
+	MyReadFile.open(in_path+"/vect.txt");
+	MyWriteFile.open(out_path+"/vect.bin");
 	while(MyReadFile >> fnum){
 		D++;
 		MyWriteFile.write((char*)&fnum,sizeof(float));
 	}
 	MyReadFile.close();
 	MyWriteFile.close();
-	// MyReadFile.clear();
-	// MyWriteFile.clear();
 	D = D/L;
 	
-	MyWriteFile.open("items.bin");
+	MyWriteFile.open(out_path+"/items.bin");
 	MyWriteFile.write((char*)&max_level,4);
 	MyWriteFile.write((char*)&ep,4);
 	MyWriteFile.write((char*)&L,4);
-	//MyWriteFile.write((char*)&U,4);
 	MyWriteFile.write((char*)&D,4);
 	MyWriteFile.close();
-	// MyWriteFile.clear();
 
-	cout<<L<<"\n"<<D<<"\n";
+	// cout<<L<<"\n"<<D<<"\n";
 	return 0;
 }

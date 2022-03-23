@@ -153,8 +153,13 @@ int main(int argc, char* argv[]){
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	int numt = omp_get_num_threads();
-	cout<<numt<<"\n";
+	int numt;
+	#pragma omp parallel
+	{
+		#pragma omp single
+		numt = omp_get_num_threads();
+	}
+	// cout<<numt<<"\n";
 	// int numt=1;
 
 	int total = size;
@@ -196,22 +201,18 @@ int main(int argc, char* argv[]){
 			}
 		}
 	}
-	for(int x = 0; x<U; x++) {
-		for(int y=0;y<L;y++) {
-			cout<<cosine_dist(user[x], vect[y]) <<" ";
-		}
-		cout<<"\n";
-	}
 
-	for(int i=0;i<U;i++) {
-		for(int j=0;j<k;j++) {
-			cout<<data[i][j]<<" ";
-		}
-		cout<<"\n";
-	}
+	// for(int i=0;i<U;i++) {
+	// 	for(int j=0;j<k;j++) {
+	// 		cout<<data[i][j]<<" ";
+	// 	}
+	// 	cout<<"\n";
+	// }
 	ofstream MyWriteFile(output_file);
+	// TODO: write output in parallel
 	MyWriteFile.close();
 	
 	MPI_Finalize();
+
 	return 0;
 }

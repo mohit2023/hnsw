@@ -6,7 +6,7 @@ using namespace std;
 
 int k = 2;
 
-float cosine_dist(vector<float> q, vector<float> vec){
+float cosine_dist(vector<float>& q, vector<float>& vec){
 	float ans = 0.0;
 	float a = 0.0;
 	float b =0.0;
@@ -21,8 +21,8 @@ float cosine_dist(vector<float> q, vector<float> vec){
 	return 1 - ans;
 }
 
-vector<pair<float,int> > SearchLayer(vector<float> q, vector<pair <float,int> > candidates, vector<int> indptr, vector<int> index, vector<int> level_offset, int lc, unordered_map<int,int> visited, vector<vector<float> > vect){
-	vector<pair<float,int> > top_k;
+vector<pair<float,int> > SearchLayer(vector<float>& q, vector<pair<float,int>>& candidates, vector<int>& indptr, vector<int>& index, vector<int>& level_offset, int lc, unordered_map<int,int>& visited, vector<vector<float>>& vect){
+	vector<pair<float,int>> top_k;
 	for(int i=0;i<candidates.size();i++){
 		top_k.push_back(candidates[i]);
 	}
@@ -36,9 +36,13 @@ vector<pair<float,int> > SearchLayer(vector<float> q, vector<pair <float,int> > 
 			if(visited[px] == 1 || px == -1){
 				continue;
 			}
+			//cout<<px<<endl;
 			visited[px] = 1;
 			float dist = cosine_dist(q,vect[px]);
-			if(dist > top_k.front().second && top_k.size() >= k){
+			if(px == 3){
+				cout<<dist<<endl;
+			}
+			if(dist > top_k.front().first && top_k.size() >= k){
 				continue;
 			}
 			top_k.push_back(make_pair(dist,px));
@@ -66,7 +70,17 @@ vector<pair<float,int> > QueryHNSW(vector<float> q, vector<pair<float, int>> top
 	return top_k;
 }
 
-int main(){
+int main(int argc, char* argv[]){
+
+	if(argc!=5){
+		cout<<"INVALID ARGS\n";
+		return 0;
+	}
+
+	string outpath = argv[1];
+	k = stoi(argv[2]);
+	string user_file = argv[3];
+	string output_file = argv[4];
 
 	int max_level, ep, num, L, U, D;
 	float ftemp;
@@ -75,68 +89,74 @@ int main(){
 	vector<vector<float>> user;
 	ifstream ifs;
 
-	ifs.open("items.bin", ios::in | ios::binary);
+	ifs.open(outpath+"/items.bin", ios::in | ios::binary);
+	ifs.read((char*)&max_level, 4);
+	ifs.read((char*)&ep, 4);
 	ifs.read((char*)&L,4);
 	ifs.read((char*)&D,4);
 	ifs.close();
-	ifs.clear();
+	// ifs.clear();
 	
-	ifs.open("max_level.bin", ios::in | ios::binary);
-	ifs.read((char*)&max_level, 4);
-	ifs.close();
-	ifs.clear();
+	// ifs.open("max_level.bin", ios::in | ios::binary);
+	// ifs.read((char*)&max_level, 4);
+	// ifs.close();
+	// ifs.clear();
 	
-	ifs.open("ep.bin", ios::in | ios::binary);
-	ifs.read((char*)&ep, 4);
-	ifs.close();
-	ifs.clear();
+	// ifs.open("ep.bin", ios::in | ios::binary);
+	// ifs.read((char*)&ep, 4);
+	// ifs.close();
+	// ifs.clear();
 	
 	int itr=0;
 	vector<int> level(L);
-	ifs.open("level.bin", ios::in | ios::binary);
+	ifs.open(outpath+"/level.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		level[itr++] = num-1;
 	}
 	ifs.close();
-	ifs.clear();
+	// ifs.clear();
 	
-	ifs.open("level_offset.bin", ios::in | ios::binary);
+	ifs.open(outpath+"/level_offset.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		level_offset.push_back(num);
 	}
 	ifs.close();
-	ifs.clear();
+	// ifs.clear();
 	
 	vector<int> indptr(L+1);
 	itr=0;
-	ifs.open("indptr.bin", ios::in | ios::binary);
+	ifs.open(outpath+"/indptr.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		indptr[itr++] = num;
 	}
 	ifs.close();
-	ifs.clear();
+	// ifs.clear();
 	
-	ifs.open("index.bin", ios::in | ios::binary);
+	ifs.open(outpath+"/index.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		index.push_back(num);
 	}
 	ifs.close();
-	ifs.clear();
+	// ifs.clear();
 	
 	vector<vector<float>> vect(L,vector<float>(D));
-	ifs.open("vect.bin");
+	ifs.open(outpath+"/vect.bin");
 	for(int i=0;i<L;i++){
 		for(int j=0;j<D;j++){
 			ifs.read((char*)&ftemp, sizeof(float));
 			vect[i][j]=ftemp;
-			cout<<ftemp<<" ";
 		}
-		cout<<"\n";
 	}
 	ifs.close();
-	ifs.clear();
+	// ifs.clear();
+	// for(int i=0;i<L;i++) {
+	// 	for(int j=0;j<D;j++) {
+	// 		cout<<vect[i][j]<<" ";
+	// 	}
+	// 	cout<<"\n";
+	// }
 	
-	ifs.open("user.txt");
+	ifs.open(user_file);
 	int d = 0;
 	U = 0;
 	vector<float> temp(D);
@@ -149,7 +169,13 @@ int main(){
 		}
 	}
 	ifs.close();
-	ifs.clear();
+	// for(int i=0;i<U;i++) {
+	// 	for(int j=0;j<D;j++) {
+	// 		cout<<user[i][j]<<" ";
+	// 	}
+	// 	cout<<"\n";
+	// }
+	// ifs.clear();
 	
 	int rank,size;
 	
@@ -157,37 +183,68 @@ int main(){
 	
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+	// int numt = omp_get_num_threads();
+	int numt=1;
+
+	int total = size;
+	int per_thread = U/total;
+	int extra = U%total;
 	
 	int perNode[size+1];
-	perNode[0] = 0;
 	for(int i=0;i<size;i++){
-		perNode[i+1] = min((i+1)*(int)(ceil(U/4)),U);
+		int start = per_thread*i;
+		start = start + (i<extra ? i : extra);
+		perNode[i] = start;
+		// cout<<perNode[i]<<" ";
 	}
+	perNode[size] = U;
+	// cout<<"\n";
 	
 	int data[perNode[rank+1]-perNode[rank]][k];
 	
-	int numt = omp_get_num_threads();
+	int total_user_omp = perNode[rank+1]-perNode[rank];
+	int per_omp_thread = total_user_omp/numt;
+	int extra_omp = total_user_omp%numt;
 	int perThread[numt+1];
 	perThread[0] = perNode[rank];
 	for(int i=0;i<numt;i++){
-		perThread[i+1] = perNode[rank] + min((i+1)*(int)(ceil(perNode[rank+1]-perNode[rank])/numt),perNode[rank+1]-perNode[rank]);
+		int start = per_omp_thread*i;
+		start = start + (i<extra_omp ? i : extra_omp);
+		perThread[i] = perNode[rank] + start;
+		// cout<<perThread[i]<<"\n";
 	}
+	perThread[numt] = perNode[rank+1];
 	#pragma omp parallel num_threads(numt)
 	{
 		int tid = omp_get_thread_num();
 		for (int i=perThread[tid];i<perThread[tid+1];i++){
 			
-			vector<pair<float,int> > top_k;
-			//make_heap(top_k.begin(),top_k.end());
+			vector<pair<float,int>> top_k;
 			top_k = QueryHNSW(user[i],top_k,ep,indptr,index,level_offset,max_level,vect);
 			sort_heap(top_k.begin(),top_k.end());
 			int j = 0;
+			//cout<<i<<"\n";
 			for(const auto &itr : top_k){
-				data[i][j] = itr.second;
+			//	cout<<itr.first<<" "<<itr.second<<"\n";
+				data[i-perThread[0]][j++] = itr.second;
 			}
 		}
 	}
-	ofstream MyWriteFile("output.txt");
+	for(int x = 0; x<U; x++) {
+		for(int y=0;y<L;y++) {
+			cout<<cosine_dist(user[x], vect[y]) <<" ";
+		}
+		cout<<"\n";
+	}
+
+	for(int i=0;i<U;i++) {
+		for(int j=0;j<k;j++) {
+			cout<<data[i][j]<<" ";
+		}
+		cout<<"\n";
+	}
+	ofstream MyWriteFile(output_file);
 	MyWriteFile.close();
 	
 	MPI_Finalize();

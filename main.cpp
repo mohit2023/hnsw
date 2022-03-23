@@ -21,27 +21,24 @@ float cosine_dist(vector<float>& q, vector<float>& vec){
 	return 1 - ans;
 }
 
-vector<pair<float,int> > SearchLayer(vector<float>& q, vector<pair<float,int>>& candidates, vector<int>& indptr, vector<int>& index, vector<int>& level_offset, int lc, unordered_map<int,int>& visited, vector<vector<float>>& vect){
-	vector<pair<float,int>> top_k;
+void SearchLayer(vector<float>& q, vector<pair<float,int>>& top_k, vector<int>& indptr, vector<int>& index, vector<int>& level_offset, int lc, unordered_map<int,int>& visited, vector<vector<float>>& vect){
+	vector<int> candidates(top_k.size());
 	for(int i=0;i<candidates.size();i++){
-		top_k.push_back(candidates[i]);
+		candidates[i] = top_k[i].second;
 	}
-	while(candidates.size() > 0){
-		int ep = candidates[candidates.size() - 1].second;
-		candidates.pop_back();
+	int len = candidates.size();
+	while(len > 0){
+		int ep = candidates[len - 1];
+		len--; candidates.pop_back();
 		int start = indptr[ep] + level_offset[lc];
 		int end = indptr[ep] + level_offset[lc+1];
 		for(int pxi = start;pxi<end;pxi++){
 			int px = index[pxi];
-			if(visited[px] == 1 || px == -1){
+			if(px == -1 || visited[px] == 1){
 				continue;
 			}
-			//cout<<px<<endl;
 			visited[px] = 1;
 			float dist = cosine_dist(q,vect[px]);
-			if(px == 3){
-				cout<<dist<<endl;
-			}
 			if(dist > top_k.front().first && top_k.size() >= k){
 				continue;
 			}
@@ -51,23 +48,24 @@ vector<pair<float,int> > SearchLayer(vector<float>& q, vector<pair<float,int>>& 
 				pop_heap(top_k.begin(),top_k.end());
 				top_k.pop_back();
 			}
-			candidates.push_back(make_pair(dist,px));
+			candidates.push_back(px);
+			len++;
 		}
 	}
-	return top_k;
+	return ;
 }
 
-vector<pair<float,int> > QueryHNSW(vector<float> q, vector<pair<float, int>> top_k, int ep, vector<int> indptr, vector<int> index, vector<int> level_offset, int max_level, vector<vector<float> > vect){
-	make_heap(top_k.begin(),top_k.end());
-	top_k.push_back(make_pair(cosine_dist(q,vect[ep]), ep));
+void QueryHNSW(vector<float>& q, vector<pair<float,int>>& top_k, int ep, vector<int>& indptr, vector<int>& index, vector<int>& level_offset, int max_level, vector<vector<float>>& vect){
+	// make_heap(top_k.begin(),top_k.end());
+	top_k.push_back({cosine_dist(q,vect[ep]), ep});
 	push_heap(top_k.begin(),top_k.end());
 	unordered_map<int,int> visited;
 	visited[ep] = 1;
 	int L = max_level;
 	for(int level = L-1; level>=0;level--){
-		top_k = SearchLayer(q,top_k,indptr,index,level_offset,level,visited,vect);
+		SearchLayer(q,top_k,indptr,index,level_offset,level,visited,vect);
 	}
-	return top_k;
+	return ;
 }
 
 int main(int argc, char* argv[]){
@@ -95,17 +93,6 @@ int main(int argc, char* argv[]){
 	ifs.read((char*)&L,4);
 	ifs.read((char*)&D,4);
 	ifs.close();
-	// ifs.clear();
-	
-	// ifs.open("max_level.bin", ios::in | ios::binary);
-	// ifs.read((char*)&max_level, 4);
-	// ifs.close();
-	// ifs.clear();
-	
-	// ifs.open("ep.bin", ios::in | ios::binary);
-	// ifs.read((char*)&ep, 4);
-	// ifs.close();
-	// ifs.clear();
 	
 	int itr=0;
 	vector<int> level(L);
@@ -114,14 +101,12 @@ int main(int argc, char* argv[]){
 		level[itr++] = num-1;
 	}
 	ifs.close();
-	// ifs.clear();
 	
 	ifs.open(outpath+"/level_offset.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		level_offset.push_back(num);
 	}
 	ifs.close();
-	// ifs.clear();
 	
 	vector<int> indptr(L+1);
 	itr=0;
@@ -130,14 +115,12 @@ int main(int argc, char* argv[]){
 		indptr[itr++] = num;
 	}
 	ifs.close();
-	// ifs.clear();
 	
 	ifs.open(outpath+"/index.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		index.push_back(num);
 	}
 	ifs.close();
-	// ifs.clear();
 	
 	vector<vector<float>> vect(L,vector<float>(D));
 	ifs.open(outpath+"/vect.bin");
@@ -148,13 +131,6 @@ int main(int argc, char* argv[]){
 		}
 	}
 	ifs.close();
-	// ifs.clear();
-	// for(int i=0;i<L;i++) {
-	// 	for(int j=0;j<D;j++) {
-	// 		cout<<vect[i][j]<<" ";
-	// 	}
-	// 	cout<<"\n";
-	// }
 	
 	ifs.open(user_file);
 	int d = 0;
@@ -169,13 +145,6 @@ int main(int argc, char* argv[]){
 		}
 	}
 	ifs.close();
-	// for(int i=0;i<U;i++) {
-	// 	for(int j=0;j<D;j++) {
-	// 		cout<<user[i][j]<<" ";
-	// 	}
-	// 	cout<<"\n";
-	// }
-	// ifs.clear();
 	
 	int rank,size;
 	
@@ -184,8 +153,9 @@ int main(int argc, char* argv[]){
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-	// int numt = omp_get_num_threads();
-	int numt=1;
+	int numt = omp_get_num_threads();
+	cout<<numt<<"\n";
+	// int numt=1;
 
 	int total = size;
 	int per_thread = U/total;
@@ -196,10 +166,8 @@ int main(int argc, char* argv[]){
 		int start = per_thread*i;
 		start = start + (i<extra ? i : extra);
 		perNode[i] = start;
-		// cout<<perNode[i]<<" ";
 	}
 	perNode[size] = U;
-	// cout<<"\n";
 	
 	int data[perNode[rank+1]-perNode[rank]][k];
 	
@@ -212,7 +180,6 @@ int main(int argc, char* argv[]){
 		int start = per_omp_thread*i;
 		start = start + (i<extra_omp ? i : extra_omp);
 		perThread[i] = perNode[rank] + start;
-		// cout<<perThread[i]<<"\n";
 	}
 	perThread[numt] = perNode[rank+1];
 	#pragma omp parallel num_threads(numt)
@@ -221,12 +188,10 @@ int main(int argc, char* argv[]){
 		for (int i=perThread[tid];i<perThread[tid+1];i++){
 			
 			vector<pair<float,int>> top_k;
-			top_k = QueryHNSW(user[i],top_k,ep,indptr,index,level_offset,max_level,vect);
+			QueryHNSW(user[i],top_k,ep,indptr,index,level_offset,max_level,vect);
 			sort_heap(top_k.begin(),top_k.end());
 			int j = 0;
-			//cout<<i<<"\n";
 			for(const auto &itr : top_k){
-			//	cout<<itr.first<<" "<<itr.second<<"\n";
 				data[i-perThread[0]][j++] = itr.second;
 			}
 		}

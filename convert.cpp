@@ -3,7 +3,9 @@
 using namespace std;
 
 int main(int argc, char* argv[]){
-
+	
+	auto begin = chrono::high_resolution_clock::now();
+	
 	if(argc!=3) {
 		cout<<"INVALID ARGS\n";
 	}
@@ -46,13 +48,10 @@ int main(int argc, char* argv[]){
 	MyReadFile.close();
 	
 	MyReadFile.open(in_path+"/level.txt");
-	MyWriteFile.open(out_path+"/level.bin");
 	while(MyReadFile >> num){
 		L++;
-		MyWriteFile.write((char*)&num,4);
 	}
 	MyReadFile.close();
-	MyWriteFile.close();
 	
 	MyReadFile.open(in_path+"/level_offset.txt");
 	MyWriteFile.open(out_path+"/level_offset.bin");
@@ -78,7 +77,10 @@ int main(int argc, char* argv[]){
 	MyWriteFile.write((char*)&L,4);
 	MyWriteFile.write((char*)&D,4);
 	MyWriteFile.close();
-
-	// cout<<L<<"\n"<<D<<"\n";
+	
+	auto end = chrono::high_resolution_clock::now();
+	double duration = (1e-6 * (chrono::duration_cast<chrono::nanoseconds>(end-begin)).count());
+	cout<<duration<<endl;
+	
 	return 0;
 }

@@ -4,7 +4,7 @@
 
 using namespace std;
 
-int k = 2;
+int k;
 
 float cosine_dist(vector<float>& q, vector<float>& vec){
 	float ans = 0.0;
@@ -56,7 +56,7 @@ void SearchLayer(vector<float>& q, vector<pair<float,int>>& top_k, vector<int>& 
 }
 
 void QueryHNSW(vector<float>& q, vector<pair<float,int>>& top_k, int ep, vector<int>& indptr, vector<int>& index, vector<int>& level_offset, int max_level, vector<vector<float>>& vect){
-	// make_heap(top_k.begin(),top_k.end());
+	
 	top_k.push_back({cosine_dist(q,vect[ep]), ep});
 	push_heap(top_k.begin(),top_k.end());
 	unordered_map<int,int> visited;
@@ -69,7 +69,9 @@ void QueryHNSW(vector<float>& q, vector<pair<float,int>>& top_k, int ep, vector<
 }
 
 int main(int argc, char* argv[]){
-
+	
+	auto begin = chrono::high_resolution_clock::now();
+	
 	if(argc!=5){
 		cout<<"INVALID ARGS\n";
 		return 0;
@@ -94,14 +96,6 @@ int main(int argc, char* argv[]){
 	ifs.read((char*)&D,4);
 	ifs.close();
 	
-	int itr=0;
-	vector<int> level(L);
-	ifs.open(outpath+"/level.bin", ios::in | ios::binary);
-	while(ifs.read((char*)&num, 4)){
-		level[itr++] = num-1;
-	}
-	ifs.close();
-	
 	ifs.open(outpath+"/level_offset.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		level_offset.push_back(num);
@@ -109,7 +103,7 @@ int main(int argc, char* argv[]){
 	ifs.close();
 	
 	vector<int> indptr(L+1);
-	itr=0;
+	int itr=0;
 	ifs.open(outpath+"/indptr.bin", ios::in | ios::binary);
 	while(ifs.read((char*)&num, 4)){
 		indptr[itr++] = num;
@@ -146,22 +140,20 @@ int main(int argc, char* argv[]){
 	}
 	ifs.close();
 	
-	int rank,size;
-	
-	MPI_Init(NULL,NULL);
-	
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
-
 	int numt;
 	#pragma omp parallel
 	{
 		#pragma omp single
 		numt = omp_get_num_threads();
 	}
-	// cout<<numt<<"\n";
-	// int numt=1;
 
+	int rank,size;
+	
+	MPI_Init(NULL,NULL);
+	
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	
 	int total = size;
 	int per_thread = U/total;
 	int extra = U%total;
@@ -174,7 +166,7 @@ int main(int argc, char* argv[]){
 	}
 	perNode[size] = U;
 	
-	int data[perNode[rank+1]-perNode[rank]][k];
+	int data[(perNode[rank+1]-perNode[rank])*k];
 	
 	int total_user_omp = perNode[rank+1]-perNode[rank];
 	int per_omp_thread = total_user_omp/numt;
@@ -187,6 +179,7 @@ int main(int argc, char* argv[]){
 		perThread[i] = perNode[rank] + start;
 	}
 	perThread[numt] = perNode[rank+1];
+	
 	#pragma omp parallel num_threads(numt)
 	{
 		int tid = omp_get_thread_num();
@@ -197,22 +190,59 @@ int main(int argc, char* argv[]){
 			sort_heap(top_k.begin(),top_k.end());
 			int j = 0;
 			for(const auto &itr : top_k){
-				data[i-perThread[0]][j++] = itr.second;
+				data[(i-perThread[0])*k + j] = itr.second;
+				j++;
 			}
 		}
 	}
-
-	// for(int i=0;i<U;i++) {
-	// 	for(int j=0;j<k;j++) {
-	// 		cout<<data[i][j]<<" ";
-	// 	}
-	// 	cout<<"\n";
-	// }
-	ofstream MyWriteFile(output_file);
-	// TODO: write output in parallel
-	MyWriteFile.close();
+	
+	if(rank == 0){
+		ofstream MyWriteFile(output_file);
+		int i = 1;
+		MPI_Request status[size];
+		int buffer[(U-perNode[1])*k];
+		
+		while(i<size){
+			MPI_Irecv(&buffer[(perNode[i]-perNode[1])*k],(perNode[rank+1]-perNode[rank])*k,MPI_INT,i,0,MPI_COMM_WORLD,&status[i]);
+			i++;
+		}
+		
+		int di = 0;
+		while(di<(perNode[1]-perNode[0])*k){
+			MyWriteFile << data[di]<<" ";
+			di++;
+			if(di%k == 0){
+				MyWriteFile <<"\n";
+			}
+		}
+		i =1;
+		di = 0;
+		while(i<size){
+			MPI_Wait(&status[i],MPI_STATUS_IGNORE);
+			while(di<(perNode[i+1]-perNode[1])*k){
+				MyWriteFile << buffer[di]<<" ";
+				di++;
+				if(di%k == 0){
+					MyWriteFile <<"\n";
+				}	
+			}
+			i++;
+		}
+		MyWriteFile.close();
+	}
+	
+	else{
+		MPI_Send(&data[0],(perNode[rank+1]-perNode[rank])*k,MPI_INT,0,0,MPI_COMM_WORLD);
+		
+	}
 	
 	MPI_Finalize();
-
+	
+	auto end = chrono::high_resolution_clock::now();
+	double duration = (1e-6 * (chrono::duration_cast<chrono::nanoseconds>(end-begin)).count());
+	cout<<duration<<endl;
+	duration = duration/U;
+	cout<<duration<<endl;
+	
 	return 0;
 }

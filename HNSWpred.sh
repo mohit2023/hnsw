@@ -1,1 +1,1 @@
-mpirun -np 1 ./hnsw $1 $2 $3 $4
+mpirun --bind-to none ./hnsw $1 $2 $3 $4

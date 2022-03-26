@@ -62,7 +62,7 @@ void QueryHNSW(vector<float>& q, vector<pair<float,int>>& top_k, int ep, vector<
 	unordered_map<int,int> visited;
 	visited[ep] = 1;
 	int L = max_level;
-	for(int level = L-1; level>=0;level--){
+	for(int level = L; level>=0;level--){
 		SearchLayer(q,top_k,indptr,index,level_offset,level,visited,vect);
 	}
 	return ;
@@ -141,11 +141,14 @@ int main(int argc, char* argv[]){
 	ifs.close();
 	
 	int numt;
-	#pragma omp parallel
-	{
-		#pragma omp single
-		numt = omp_get_num_threads();
-	}
+	// #pragma omp parallel
+	// {
+	// 	#pragma omp single
+	// 	numt = omp_get_num_threads();
+	// }
+	numt = omp_get_num_procs();
+	// cout<<numt<<"\n";
+	// int numt=1;
 
 	int rank,size;
 	
@@ -166,7 +169,7 @@ int main(int argc, char* argv[]){
 	}
 	perNode[size] = U;
 	
-	int data[(perNode[rank+1]-perNode[rank])*k];
+	int data[perNode[rank+1]-perNode[rank]][k];
 	
 	int total_user_omp = perNode[rank+1]-perNode[rank];
 	int per_omp_thread = total_user_omp/numt;
@@ -190,59 +193,56 @@ int main(int argc, char* argv[]){
 			sort_heap(top_k.begin(),top_k.end());
 			int j = 0;
 			for(const auto &itr : top_k){
-				data[(i-perThread[0])*k + j] = itr.second;
+				data[i-perThread[0]][j] = itr.second;
 				j++;
 			}
 		}
 	}
-	
-	if(rank == 0){
-		ofstream MyWriteFile(output_file);
-		int i = 1;
-		MPI_Request status[size];
-		int buffer[(U-perNode[1])*k];
-		
-		while(i<size){
-			MPI_Irecv(&buffer[(perNode[i]-perNode[1])*k],(perNode[rank+1]-perNode[rank])*k,MPI_INT,i,0,MPI_COMM_WORLD,&status[i]);
-			i++;
-		}
-		
-		int di = 0;
-		while(di<(perNode[1]-perNode[0])*k){
-			MyWriteFile << data[di]<<" ";
-			di++;
-			if(di%k == 0){
-				MyWriteFile <<"\n";
-			}
-		}
-		i =1;
-		di = 0;
-		while(i<size){
-			MPI_Wait(&status[i],MPI_STATUS_IGNORE);
-			while(di<(perNode[i+1]-perNode[1])*k){
-				MyWriteFile << buffer[di]<<" ";
-				di++;
-				if(di%k == 0){
-					MyWriteFile <<"\n";
-				}	
-			}
-			i++;
-		}
-		MyWriteFile.close();
+
+	// for(int i=0;i<U;i++) {
+	// 	for(int j=0;j<k;j++) {
+	// 		cout<<data[i][j]<<" ";
+	// 	}
+	// 	cout<<"\n";
+	// }
+
+	if(rank!=0) {
+		// recv sygnal to write
+		int x;
+		MPI_Recv(&x, 1, MPI_INT, rank-1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	}
-	
-	else{
-		MPI_Send(&data[0],(perNode[rank+1]-perNode[rank])*k,MPI_INT,0,0,MPI_COMM_WORLD);
-		
+
+	ofstream out(output_file, ios::app);
+	for(int i=0;i<perNode[rank+1]-perNode[rank];i++) {
+		for(int j=0;j<k;j++) {
+			out<<data[i][j]<<" ";
+		}
+		out<<"\n";
+		// cout<<rank<<" is my rank\n";
+		// for(int j=0;j<k;j++) {
+		// 	cout<<data[i][j]<<" ";
+		// }
+		// cout<<"\n";
+	}
+	out.close();
+
+	if(rank!=size-1) {
+		// send sygnal to write
+		int x;
+		MPI_Send(&x, 1, MPI_INT, rank+1, 0, MPI_COMM_WORLD);
 	}
 	
 	MPI_Finalize();
-	
-	auto end = chrono::high_resolution_clock::now();
-	double duration = (1e-6 * (chrono::duration_cast<chrono::nanoseconds>(end-begin)).count());
-	cout<<duration<<endl;
-	duration = duration/U;
-	cout<<duration<<endl;
-	
+
+	if(rank==size-1) {
+		auto end = std::chrono::high_resolution_clock::now();
+		auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+		double duration = (1e-6 * (std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin)).count());
+
+		printf("Total Time taken is : %f \n", duration);
+		double avg = duration/U;
+		printf("Avg prediction time is : %f \n", avg);
+	}
+
 	return 0;
 }
